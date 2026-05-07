@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Smart Notice Board</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg:#f5f7fb;
+      --card:#ffffff;
+      --text:#111;
+      --primary:#4a6cf7;
+    }
+
+    body.dark {
+      --bg:#0f172a;
+      --card:#1e293b;
+      --text:#ffffff;
+    }
+
+    body {
+      margin:0;
+      font-family:'Poppins';
+      background:var(--bg);
+      color:var(--text);
+      transition:.3s;
+    }
+
+    header {
+      background:var(--primary);
+      color:white;
+      padding:15px 20px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+
+    header button {
+      margin-left:10px;
+      padding:6px 10px;
+    }
+
+    .container {
+      max-width:900px;
+      margin:auto;
+      padding:20px;
+    }
+
+    .card {
+      background:var(--card);
+      padding:18px;
+      border-radius:12px;
+      margin-bottom:20px;
+      box-shadow:0 6px 20px rgba(0,0,0,0.08);
+      animation:fade .4s;
+    }
+
+    @keyframes fade {
+      from{opacity:0; transform:translateY(10px);}
+      to{opacity:1;}
+    }
+
+    h3 {
+      margin-top:0;
+    }
+
+    input, button {
+      width:100%;
+      padding:10px;
+      margin-top:8px;
+      border-radius:8px;
+      border:1px solid #ccc;
+    }
+
+    button {
+      background:var(--primary);
+      color:white;
+      border:none;
+      cursor:pointer;
+      font-weight:500;
+    }
+
+    button:hover {
+      transform:scale(1.02);
+    }
+
+    .danger {
+      background:#e53935;
+    }
+
+    .flex {
+      display:flex;
+      gap:10px;
+    }
+
+    .days {
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      margin-top:5px;
+    }
+
+    .days label {
+      background:#ddd;
+      padding:5px 8px;
+      border-radius:6px;
+      font-size:12px;
+      cursor:pointer;
+    }
+
+    body.dark .days label {
+      background:#334155;
+    }
+
+    .message-card {
+      background:rgba(0,0,0,0.05);
+      padding:12px;
+      border-radius:8px;
+      margin-top:10px;
+      transition:.3s;
+    }
+
+    body.dark .message-card {
+      background:rgba(255,255,255,0.05);
+    }
+
+    .message-card:hover {
+      transform:scale(1.02);
+    }
+
+  </style>
+</head>
+
+<body>
+
+<header>
+  <span>Smart Notice Board</span>
+  <div>
+    <button onclick="toggleDark()">🌙</button>
+    <button onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<div class="container">
+
+<!-- LOGIN -->
+<div class="card" id="loginCard">
+  <h3>Login</h3>
+  <input id="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+  <button onclick="login()">Login</button>
+</div>
+
+<!-- MAIN -->
+<div id="mainUI" style="display:none;">
+
+<!-- ADD -->
+<div class="card">
+  <h3>Add Message</h3>
+
+  <input id="msg" placeholder="Enter message">
+
+  <div class="flex">
+    <input type="time" id="startTime">
+    <input type="time" id="stopTime">
+  </div>
+
+  <input type="range" id="speed" min="10" max="100">
+
+  <h4>Select Days</h4>
+  <div class="days">
+    <label><input type="checkbox" value="0"> Sun</label>
+    <label><input type="checkbox" value="1"> Mon</label>
+    <label><input type="checkbox" value="2"> Tue</label>
+    <label><input type="checkbox" value="3"> Wed</label>
+    <label><input type="checkbox" value="4"> Thu</label>
+    <label><input type="checkbox" value="5"> Fri</label>
+    <label><input type="checkbox" value="6"> Sat</label>
+  </div>
+
+  <button onclick="addMessage()">Add Message</button>
+</div>
+
+<!-- PRIORITY -->
+<div class="card">
+  <h3>Priority Message</h3>
+  <input id="priorityMsg" placeholder="Priority message">
+  <label><input type="checkbox" id="prioritySwitch"> Enable</label>
+  <button onclick="setPriority()">Set Priority</button>
+  <button class="danger" onclick="resetPriority()">Reset</button>
+</div>
+
+<!-- LIST -->
+<div class="card">
+  <h3>Messages</h3>
+  <div id="list"></div>
+</div>
+
+</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase.js"></script>
+
+<script>
+
+// CONFIG
+var firebaseConfig = {
+  apiKey: "AIzaSyCSJHRE-a-dMUqsI_tNlBHXa28isBrlb8U",
+  authDomain: "iot-based-smart-e-notice-board.firebaseapp.com",
+  databaseURL: "https://iot-based-smart-e-notice-board-default-rtdb.firebaseio.com"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+var db = firebase.database();
+var auth = firebase.auth();
+
+// LOGIN
+function login(){
+  auth.signInWithEmailAndPassword(email.value, password.value)
+  .catch(e=>alert(e.message));
+}
+
+// LOGOUT
+function logout(){
+  auth.signOut();
+}
+
+// AUTH STATE
+auth.onAuthStateChanged(user=>{
+  if(user){
+    mainUI.style.display="block";
+    loginCard.style.display="none";
+  } else {
+    mainUI.style.display="none";
+    loginCard.style.display="block";
+  }
+});
+
+// DARK MODE SAVE
+if(localStorage.getItem("dark")==="1"){
+  document.body.classList.add("dark");
+}
+
+function toggleDark(){
+  document.body.classList.toggle("dark");
+  localStorage.setItem("dark", document.body.classList.contains("dark")?1:0);
+}
+
+// DAYS
+function getDays(){
+  let arr=[];
+  document.querySelectorAll(".days input:checked")
+  .forEach(el=>arr.push(el.value));
+  return arr.join(",");
+}
+
+// TIME CONVERT
+function convertTime(t){
+  if(!t) return 0;
+  let p=t.split(":");
+  return parseInt(p[0])*100+parseInt(p[1]);
+}
+function convertTimeToNumber(timeStr) {
+
+  if (!timeStr || timeStr === "") return 0;
+
+  let parts = timeStr.split(":");
+
+  return parseInt(parts[0] + parts[1]);
+}
+// ADD
+function addMessage() {
+
+  const msg = document.getElementById("msg").value;
+
+  const start = document.getElementById("startTime").value;
+
+  const stop = document.getElementById("stopTime").value;
+
+  const speed = document.getElementById("speed").value;
+
+  firebase.database().ref("notice/messages").push({
+
+    text: msg,
+
+    start: convertTimeToNumber(start),
+
+    stop: convertTimeToNumber(stop),
+
+    speed: Math.max(10, 60 - Number(speed)),
+
+    days: "all"
+  });
+}
+
+
+// DELETE
+function deleteMessage(id){
+  db.ref("notice/messages/"+id).remove();
+}
+
+// PRIORITY
+function setPriority(){
+  db.ref("notice/priority").set({
+    msg: priorityMsg.value,
+    status: prioritySwitch.checked?1:0
+  });
+}
+
+function resetPriority(){
+  db.ref("notice/priority").set({
+    msg:"",
+    status:0
+  });
+}
+
+// REAL-TIME LIST
+db.ref("notice/messages").on("value", snap=>{
+  let data=snap.val();
+  let html="";
+
+  if(!data){
+    list.innerHTML="No messages";
+    return;
+  }
+
+  for(let id in data){
+    let m=data[id];
+    html+=`
+    <div class="message-card">
+      <b>${m.text}</b><br>
+      ${m.start}-${m.stop} | Speed:${m.speed}<br>
+      Days:${m.days||"All"}<br>
+      <button class="danger" onclick="deleteMessage('${id}')">Delete</button>
+    </div>`;
+  }
+
+  list.innerHTML=html;
+});
+
+</script>
+
+</body>
+</html>
